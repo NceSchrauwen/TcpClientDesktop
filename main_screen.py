@@ -77,10 +77,9 @@ class MainScreen:
         except Exception as e:
             self.add_item(f"Error sending non-scan request: {e}")
 
-    # TODO: Add check if popup isn't open when it should be (when clicked off earlier and won't open again)
     def show_waiting_popup(self):
-        if self.popup:
-            return  # Already open
+        if self.popup and self.popup.winfo_exists():
+            return  # Already open and visible
 
         self.popup = tk.Toplevel(self.frame)
         self.popup.title("Approval Pending")
@@ -91,6 +90,13 @@ class MainScreen:
         self.popup_result_label = tk.Label(self.popup, text="", font=("Helvetica", 14, "bold"))
         self.popup_result_label.pack(pady=10)
 
+        # Handle manual window close to reset popup reference
+        self.popup.protocol("WM_DELETE_WINDOW", self.on_popup_close)
+
+    def on_popup_close(self):
+        self.popup.destroy()
+        self.popup = None
+
     def prompt_price_for_non_scan_item(self):
         price_popup = tk.Toplevel(self.frame)
         price_popup.title("Enter Price for Non-Scan Item")
@@ -99,10 +105,11 @@ class MainScreen:
         price_entry = tk.Entry(price_popup, font=("Helvetica", 14))
         price_entry.pack(pady=5)
 
-        # TODO: Enter a check only points allowed
         def confirm_price():
             try:
-                price = float(price_entry.get())
+                # Replace comma with dot for float conversion so it does not raise a ValueError
+                raw_input = price_entry.get().replace(",", ".")
+                price = float(raw_input)
                 if price <= 0:
                     raise ValueError("Price must be greater than 0.")
 
