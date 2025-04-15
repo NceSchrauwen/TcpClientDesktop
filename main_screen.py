@@ -1,12 +1,14 @@
 import tkinter as tk
 
 class MainScreen:
-    def __init__(self, root, client, worker_name):
+    def __init__(self, root, client, worker_name, on_logout):
         self.client = client
         self.scanned_items = []
         self.popup = None
+        self.on_logout = on_logout  # store the callback
 
         self.frame = tk.Frame(root)
+        self.temp_frame = tk.Frame(root)
 
         tk.Label(self.frame, text=f"Logged in as: {worker_name}", font=("Helvetica", 18, "bold")).pack(pady=(10, 10))
 
@@ -22,17 +24,41 @@ class MainScreen:
         self.total_label = tk.Label(self.frame, text="Total: €0.00", font=("Helvetica", 16, "bold"))
         self.total_label.pack(pady=(10, 0))
 
+        tk.Button(self.frame, text="Logout", font=("Helvetica", 12), command=self.logout).pack(pady=10)
+
     def show(self):
         self.frame.pack(padx=20, pady=20)
 
     def add_item(self, item):
+        item = item.strip() # Remove leading/trailing whitespace
+
+        if item.strip().upper() == "PONG":
+            print("Received PONG from server.")
+            return
+
         if item.strip().upper() in ["APPROVED", "DENIED"]:
             self.update_popup_result(item)
+            return
+
+        if item.startswith("UID not found"):
+            self.show_temp_popup(item, 3000)
             return
 
         self.scanned_items.append(item)
         self.update_item_list_display()
         self.update_total()
+
+    def show_temp_popup(self, message, duration):
+        popup = tk.Toplevel(self.temp_frame)
+        popup.title("Notice")
+        popup.geometry("300x100")
+        popup.resizable(False, False)
+        popup.configure(bg="white")
+
+        label = tk.Label(popup, text=message, bg="white", fg="red", font=("Arial", 12), wraplength=280)
+        label.pack(expand=True, padx=10, pady=10)
+
+        popup.after(duration, popup.destroy)
 
     def update_total(self):
         total = 0.0
@@ -75,7 +101,7 @@ class MainScreen:
             self.client.send("NONSCAN_REQUEST".encode())
             self.show_waiting_popup()
         except Exception as e:
-            self.add_item(f"Error sending non-scan request: {e}")
+            print(f"Error sending non-scan request: {e}")
 
     def show_waiting_popup(self):
         if self.popup and self.popup.winfo_exists():
@@ -97,6 +123,8 @@ class MainScreen:
         self.popup.destroy()
         self.popup = None
 
+    # TODO: Add how many times a non-scan item was requested + add blinking leds when uid not recognized with pi
+    # TODO: Try all applications with different ip addresses
     def prompt_price_for_non_scan_item(self):
         price_popup = tk.Toplevel(self.frame)
         price_popup.title("Enter Price for Non-Scan Item")
@@ -145,3 +173,16 @@ class MainScreen:
             self.client.send("NFC_RESTART".encode())
         except Exception as e:
             self.add_item(f"Error restarting NFC scan: {e}")
+
+    def logout(self):
+        try:
+            self.client.send("LOGOUT".encode())
+        except Exception as e:
+            print(f"Error sending logout message: {e}")
+        finally:
+            try:
+                self.client.close()
+            except Exception as e:
+                print(f"Error closing socket: {e}")
+            self.frame.pack_forget()
+            self.on_logout()  # switch back to login screen
