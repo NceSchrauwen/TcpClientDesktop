@@ -124,6 +124,7 @@ class MainScreen:
         self.popup = None
 
     # TODO: Add how many times a non-scan item was requested + add blinking leds when uid not recognized with pi
+    # TODO: When intentionally logging out dont show the disconnect message
     # TODO: Try all applications with different ip addresses
     def prompt_price_for_non_scan_item(self):
         price_popup = tk.Toplevel(self.frame)
